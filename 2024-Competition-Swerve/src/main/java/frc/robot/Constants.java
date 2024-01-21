@@ -23,10 +23,11 @@ public final class Constants {
     public static final class SwerveConstants {
         // These can be safely adjusted without adjusting discrete
         // Some fudge factor is needed for safety while translating + rotating
-        //public static final double maxChassisTranslationalSpeed = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
-        //public static final double maxWheelLinearVelocityMeters = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
-        public static final double maxChassisTranslationalSpeed = 0.5;
-        public static final double maxWheelLinearVelocityMeters = 0.5;
+        // Max speed is 3.4 m/s
+        public static final double maxChassisTranslationalSpeed = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
+        public static final double maxWheelLinearVelocityMeters = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
+       // public static final double maxChassisTranslationalSpeed = 0.5;
+       // public static final double maxWheelLinearVelocityMeters = 0.5;
         public static final double maxChassisAngularVelocity = Math.PI * 2.0; // A decent number but not fast enough
 
         public static final double trackWidthX = Units.inchesToMeters(27.5); // 27.5 inch
@@ -69,7 +70,8 @@ public final class Constants {
         public static final double turningEncoderVelocityFactor = (2 * Math.PI) / turnGearRatio / 60.0; // radians per second
 
         // Confirmed working kP!!
-        public static final double drivekP = 0.1; // This is good!
+        public static final double drivekP = 0.17; // This is good!
+        //public static final double drivekP = 0.0;
         public static final double drivekI = 0.0;
         public static final double drivekD = 0.0;
 
@@ -77,8 +79,10 @@ public final class Constants {
         // The 5790 value is the correct empirical value from the woodblocks
         // TODO - Might need to be re-calibrated for carpet or concrete
         public static final double maxRPMWoodBlocks = 5790.0;
+        public static final double maxRPMCarpet = 5280.0;
+
         // Max free speed in RPM originally, converted to RPS native unit
-        public static final double maxFreeSpeed = maxRPMWoodBlocks / 60.0;
+        public static final double maxFreeSpeed = maxRPMCarpet / 60.0;
         // Unit for this: meters/s
         // Calculating it out:
         // 94.6 RPS * pi * 0.1016 m / 8.14 gearing = 3.7094567527 meters / s = 12.1701337 feet / s
