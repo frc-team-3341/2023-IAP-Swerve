@@ -1,5 +1,9 @@
 package frc.robot.subsystems.swerve;
 
+import java.util.function.Supplier;
+
+import com.ctre.phoenix6.StatusCode;
+
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 
@@ -10,6 +14,8 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
  * @author Aric Volman
  */
 public interface SwerveModuleIO {
+
+   final int CONFIG_RETRY_COUNT = 5;
    
    /**
     * Gets number of module
@@ -100,5 +106,14 @@ public interface SwerveModuleIO {
     * Updates simulation motors by a constant dt (0.02)
     */
    default void updateSim() {
+   }
+
+   default void retryConfigApply(Supplier<StatusCode> toApply) {
+      StatusCode finalCode = StatusCode.StatusCodeNotInitialized;
+      int triesLeftOver = CONFIG_RETRY_COUNT;
+      do {
+         finalCode = toApply.get();
+      } while (!finalCode.isOK() && --triesLeftOver > 0);
+      assert(finalCode.isOK());
    }
 }

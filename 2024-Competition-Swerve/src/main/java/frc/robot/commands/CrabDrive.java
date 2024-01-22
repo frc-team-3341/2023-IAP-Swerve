@@ -19,8 +19,8 @@ public class CrabDrive extends Command {
    private DoubleSupplier x;
    private DoubleSupplier y;
 
-   private double xMult = 1.0;
-   private double yMult = 1.0;
+   private double xSign = 1.0;
+   private double ySign = 1.0;
 
    private ArcadeJoystickUtil joyUtil;
 
@@ -40,7 +40,7 @@ public class CrabDrive extends Command {
       // Blue Alliance by default for this testing command
       this.x = y;
       this.y = x;
-      xMult = -1.0;
+      xSign = -1.0;
       this.joyUtil = new ArcadeJoystickUtil();
       this.addRequirements(swerve);
    }
@@ -70,11 +70,11 @@ public class CrabDrive extends Command {
       // Deadband should be applied after calculation of polar coordinates
       newHypot = MathUtil.applyDeadband(newHypot, Constants.SwerveConstants.deadBand);
 
-      double correctedX = xMult * newHypot * Math.cos(output[1]);
-      double correctedY = yMult * newHypot * Math.sin(output[1]);
+      double xCorrected = xSign * newHypot * Math.cos(output[1]);
+      double yCorrected = ySign * newHypot * Math.sin(output[1]);
 
       // Drive swerve with values
-      this.swerve.drive(new Translation2d(correctedX, correctedY), 0.0,
+      this.swerve.drive(new Translation2d(xCorrected, yCorrected), 0.0,
            false, false);
    }
 
