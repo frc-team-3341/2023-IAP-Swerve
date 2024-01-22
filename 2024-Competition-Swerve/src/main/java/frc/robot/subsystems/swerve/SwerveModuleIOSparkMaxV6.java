@@ -4,18 +4,18 @@
 
 package frc.robot.subsystems.swerve;
 
-import com.ctre.phoenix.sensors.CANCoder;
-import com.ctre.phoenix.sensors.AbsoluteSensorRange;
-import com.ctre.phoenix.sensors.SensorInitializationStrategy;
-import com.revrobotics.CANSparkMax;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.SparkPIDController;
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.configs.MagnetSensorConfigs;
+import com.ctre.phoenix6.hardware.CANcoder;
+import com.ctre.phoenix6.signals.AbsoluteSensorRangeValue;
 import com.revrobotics.CANSparkBase.IdleMode;
 import com.revrobotics.CANSparkLowLevel.MotorType;
 import com.revrobotics.CANSparkLowLevel.PeriodicFrame;
+import com.revrobotics.CANSparkMax;
+import com.revrobotics.RelativeEncoder;
+import com.revrobotics.SparkPIDController;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -35,27 +35,27 @@ import frc.robot.Constants.ModuleConstants;
  * 
  * @author Aric Volman
  */
-public class SwerveModuleIOCANCoder implements SwerveModuleIO {
+public class SwerveModuleIOSparkMaxV6 implements SwerveModuleIO {
     private CANSparkMax driveSparkMax;
     private CANSparkMax turnSparkMax;
 
     private SparkPIDController drivePID;
-    private PIDController turnPID;
+    private SparkPIDController turnPID;
 
     private RelativeEncoder driveEncoder;
-    private CANCoder turnEncoder;
+    private RelativeEncoder turnEncoder;
+
+    private CANcoder canCoder;
 
     // Variables to store voltages of motors - REV stuff doesn't like getters
     private double driveVolts = 0.0;
     private double turnVolts = 0.0;
 
-    double offset;
+    // Angular offset of module - MAKE SURE CANCODER IS [-180, 180)
+    private double offset = 0.0;
 
     // Object to hold swerve module state
     private SwerveModuleState state = new SwerveModuleState(0.0, new Rotation2d(0.0));
-
-    // Might not need offset if using CANCoders
-    // private double angularOffset = 0.0;
 
     private int num = 0;
 
@@ -67,39 +67,64 @@ public class SwerveModuleIOCANCoder implements SwerveModuleIO {
      * @param turnEncoderOffset Offset in degrees for module (from -180 to 180)
      * @author Aric Volman
      */
-    public SwerveModuleIOCANCoder(int num, int driveID, int turnID, int turnCANCoderID, double turnEncoderOffset,
+    public SwerveModuleIOSparkMaxV6(int num, int driveID, int turnID, int turnCANCoderID, double turnEncoderOffset,
             boolean invert) {
+ 
+       // TODO - Put config method calls in separate file
+       // TIP or TODO - Put config method calls in separate Command object, call via Runnable when needed
+       //    --> When needed: when a module's motor could hypothetically reboot during a match
 
-        // TODO - Put config method calls in separate file
-        // TIP or TODO - Put config method calls in separate Command object, call via Runnable when needed
-        //    --> When needed: when a module's motor could hypothetically reboot during a match
+       offset = turnEncoderOffset;
+        
+       canCoder = new CANcoder(turnCANCoderID);
+       driveSparkMax = new CANSparkMax(driveID, MotorType.kBrushless);
+       turnSparkMax = new CANSparkMax(turnID, MotorType.kBrushless);
 
-        turnEncoder = new CANCoder(turnCANCoderID);
-        turnEncoder.configFactoryDefault();
+       configCANCoder();
+       configDriveMotor(invert);
+       configTurnMotor();
 
-        offset = turnEncoderOffset;
+       driveSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus3, 65535);
+       turnSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus3, 65535);
+       turnSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus5, 20);
 
-        // Construct CANSparkMaxes
-        driveSparkMax = new CANSparkMax(driveID, MotorType.kBrushless);
-        turnSparkMax = new CANSparkMax(turnID, MotorType.kBrushless);
+       driveEncoder.setPosition(0);
+       
+       // Offsets the position of the CANCoder via an offset and initializes the turning encoder, placed in proper scope of [-180, 180)
+       turnEncoder.setPosition(Units.degreesToRadians((canCoder.getAbsolutePosition().getValueAsDouble())*360.0 - offset));
+       state.angle = new Rotation2d(turnEncoder.getPosition());
 
+       this.num = num;
+
+    }
+
+    public void configCANCoder() {
+
+        CANcoderConfiguration config = new CANcoderConfiguration();
+
+        config.FutureProofConfigs = false;
+       
+        MagnetSensorConfigs magnetSensor = new MagnetSensorConfigs();
+
+        magnetSensor.AbsoluteSensorRange = AbsoluteSensorRangeValue.Signed_PlusMinusHalf;
+
+        config.MagnetSensor = magnetSensor;
+
+        canCoder.getConfigurator().apply(config);
+    }
+
+    public void configDriveMotor(boolean invert) {
         // Reset to defaults
         driveSparkMax.restoreFactoryDefaults();
-        turnSparkMax.restoreFactoryDefaults();
 
-        turnPID = new PIDController(Constants.ModuleConstants.turnkP, 0, 0);
-
-        // turnSparkMax.setInverted(true);
-
+        // Construct CANSparkMaxes
         // Initialize encoder and PID controller
         driveEncoder = driveSparkMax.getEncoder();
         drivePID = driveSparkMax.getPIDController();
         drivePID.setFeedbackDevice(driveEncoder);
-
         // Set conversion factors
         driveEncoder.setPositionConversionFactor(ModuleConstants.drivingEncoderPositionFactor);
         driveEncoder.setVelocityConversionFactor(ModuleConstants.drivingEncoderVelocityPositionFactor);
-
         // Set SPARK MAX PIDF
         // More advantageous due to 1 KHz cycle (can ramp up action quicker)
         drivePID.setP(ModuleConstants.drivekP);
@@ -111,48 +136,52 @@ public class SwerveModuleIOCANCoder implements SwerveModuleIO {
         driveSparkMax.setInverted(invert);
 
         driveSparkMax.setIdleMode(CANSparkMax.IdleMode.kBrake);
-        turnSparkMax.setIdleMode(CANSparkMax.IdleMode.kBrake);
         driveSparkMax.setSmartCurrentLimit(ModuleConstants.driveCurrentLimit);
+
+    }
+
+    public void configTurnMotor() {
+        // Reset to defaults
+        turnSparkMax.restoreFactoryDefaults();
+
+        // Initialize encoder and PID controller
+        turnEncoder = turnSparkMax.getEncoder();
+        turnPID = turnSparkMax.getPIDController();
+        turnPID.setFeedbackDevice(turnEncoder);
+        // Set conversion factors
+        turnEncoder.setPositionConversionFactor(ModuleConstants.turningEncoderPositionFactor);
+        turnEncoder.setVelocityConversionFactor(ModuleConstants.turningEncoderVelocityFactor);
+        // Derived from: https://github.com/BroncBotz3481/YAGSL-Configs/tree/main/sds/mk4i/neo
+        turnSparkMax.setInverted(true); // This works, because the MK4i is inverted
+
+        // Set SPARK MAX PIDF
+        // More advantageous due to 1 KHz cycle (can ramp up action quicker)
+        turnPID.setPositionPIDWrappingEnabled(true);
+        turnPID.setPositionPIDWrappingMinInput(-Math.PI);
+        turnPID.setPositionPIDWrappingMaxInput(Math.PI);
+
+        turnSparkMax.setIdleMode(CANSparkMax.IdleMode.kBrake);
         turnSparkMax.setSmartCurrentLimit(ModuleConstants.turnCurrentLimit);
-
-        driveSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus3, 65535);
-        turnSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus3, 65535);
-
-        // Only useful for encoder
-        // turnSparkMax.setPeriodicFramePeriod(PeriodicFrame.kStatus5, 20);
-
-        driveEncoder.setPosition(0);
-
-        // Set position of encoder to absolute mode
-        turnEncoder.setPositionToAbsolute();
-        turnEncoder.configSensorInitializationStrategy(SensorInitializationStrategy.BootToAbsolutePosition);
-        // As of 12/16 -> Changed to +- 180 instead
-        // Now this is from -90 to 0 to 90
-        turnEncoder.configAbsoluteSensorRange(AbsoluteSensorRange.Signed_PlusMinus180);
-        // turnEncoder.configSensorDirection(true);
-        // turnEncoder.configMagnetOffset(turnEncoderOffset);
 
         turnPID.setP(Constants.ModuleConstants.turnkP);
         turnPID.setI(Constants.ModuleConstants.turnkI);
         turnPID.setD(Constants.ModuleConstants.turnkD);
-
-        // Continous input jumping from 0 to 2*PI
-        // Not advisable for Derivative constant
-        turnPID.enableContinuousInput(-Math.PI, Math.PI);
-
-        this.state.angle = new Rotation2d(getTurnPositionInRad());
-
-        this.num = num;
-
+        turnPID.setFF(0);
+        turnPID.setOutputRange(-1, 1);
+        
     }
 
     public double getTurnPositionInRad() {
-        // Divide by 1.0, as CANCoder has direct measurement of output
-        return Units.degreesToRadians(turnEncoder.getAbsolutePosition() - offset);
+        // Position should be already offsetted in constructor
+        // Modulus places measurement of relative encoder in absolute coordinates (-180 to 180 scope)
+        // Modulus is needed if the wheel is spun too much relative to the encoder's starting point
+        return MathUtil.angleModulus(turnEncoder.getPosition());
     }
 
     public void setDesiredState(SwerveModuleState state) {
         // Optimize state so that movement is minimized
+        // Should be fine optimizing with PID strategy of -180 to 180 scope, not 0 to 360 scope
+        // https://first.wpi.edu/wpilib/allwpilib/docs/release/java/src-html/edu/wpi/first/math/kinematics/SwerveModuleState.html#line.65
         state = SwerveModuleState.optimize(state, new Rotation2d(getTurnPositionInRad()));
 
         // Cap setpoints at max speeds for safety
@@ -164,13 +193,8 @@ public class SwerveModuleIOCANCoder implements SwerveModuleIO {
         drivePID.setReference(state.speedMetersPerSecond, CANSparkMax.ControlType.kVelocity);
 
         // Set setpoint of WPILib PID controller for turning
-        this.turnPID.setSetpoint(state.angle.getRadians());
-
-        // Calculate PID in motor power (from -1.0 to 1.0)
-        double turnOutput = MathUtil.clamp(this.turnPID.calculate(getTurnPositionInRad()), -1.0, 1.0);
-
-        // Set voltage of SPARK MAX
-        turnSparkMax.setVoltage(turnOutput * 12.0);
+        // The built-in position wrapping should handle any discontinuity around the -180 to 180 range if needed
+        turnPID.setReference(state.angle.getRadians(), CANSparkMax.ControlType.kPosition);
 
         // Set internal state as passed-in state
         this.state = state;
@@ -226,14 +250,15 @@ public class SwerveModuleIOCANCoder implements SwerveModuleIO {
     }
 
     public void updateTelemetry() {
+        
         SmartDashboard.putNumber("Max Free Speed", ModuleConstants.maxFreeWheelSpeedMeters);
         SmartDashboard.putNumber("Wheel Displacement #" + this.num, getPosition().distanceMeters);
 
         // Show turning position and setpoints
-        SmartDashboard.putNumber("Turn Pos Degrees #" + this.num,
-                Units.radiansToDegrees(getTurnPositionInRad()));
-        SmartDashboard.putNumber("Raw Turn Pos #" + num, getTurnPositionInRad());
-        SmartDashboard.putNumber("Setpoint Turn Pos #" + this.num, state.angle.getRadians());
+        SmartDashboard.putNumber("Turn Pos Deg #" + this.num, Units.radiansToDegrees(getTurnPositionInRad()));
+        SmartDashboard.putNumber("Radian Turn Pos #" + num, getTurnPositionInRad());
+        SmartDashboard.putNumber("Rad Setpoint Turn Pos #" + this.num, state.angle.getRadians());
+        SmartDashboard.putNumber("Setpoint Turn Pos Deg #" + this.num, Units.radiansToDegrees(state.angle.getRadians()));
 
         // Show driving velocity and setpoints
         SmartDashboard.putNumber("Drive Vel #" + this.num, driveEncoder.getVelocity());
@@ -247,8 +272,8 @@ public class SwerveModuleIOCANCoder implements SwerveModuleIO {
         SmartDashboard.putNumber("Turn RPM #" + this.num, (turnEncoder.getVelocity() / 360.0) * 60.0);
         SmartDashboard.putNumber("Drive RPS #" + this.num,
                 driveEncoder.getVelocity() / Constants.ModuleConstants.drivingEncoderPositionFactor);
-
-        SmartDashboard.putNumber("Raw CanCODER #" + this.num, turnEncoder.getAbsolutePosition());
+        SmartDashboard.putNumber("CANCoder #" + this.num, (canCoder.getAbsolutePosition().getValueAsDouble())*360.0);
+          
     }
 
     public int getNum() {

@@ -22,8 +22,8 @@ public class SwerveTeleop extends Command {
    private DoubleSupplier rotationSup;
    private BooleanSupplier robotCentricSup;
 
-   private double xMult = 1.0;
-   private double yMult = 1.0;
+   private double xSign = 1.0;
+   private double ySign = 1.0;
 
    private ArcadeJoystickUtil joyUtil;
 
@@ -54,12 +54,12 @@ public class SwerveTeleop extends Command {
          if (blueAllianceOrNot) {
             this.x = y;
             this.y = x;
-            xMult = -1.0;
+            xSign = -1.0;
          // If red alliance
          } else if (!blueAllianceOrNot) {
             this.x = y;
             this.y = x;
-            yMult = -1.0;
+            ySign = -1.0;
          }
       }
       this.rotationSup = rotationSup;
@@ -99,11 +99,11 @@ public class SwerveTeleop extends Command {
       // Deadband should be applied after calculation of polar coordinates
       newHypot = MathUtil.applyDeadband(newHypot, Constants.SwerveConstants.deadBand);
 
-      double correctedX = xMult * newHypot * Math.cos(output[1]);
-      double correctedY = yMult * newHypot * Math.sin(output[1]);
+      double xCorrected = xSign * newHypot * Math.cos(output[1]);
+      double yCorrected = ySign * newHypot * Math.sin(output[1]);
 
       // Drive swerve with values
-      this.swerve.drive(new Translation2d(correctedX, correctedY),
+      this.swerve.drive(new Translation2d(xCorrected, yCorrected),
             rotationVal * Constants.SwerveConstants.maxChassisAngularVelocity,
             this.robotCentricSup.getAsBoolean(), false);
    }

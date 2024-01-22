@@ -23,8 +23,6 @@ public final class Constants {
     public static final class SwerveConstants {
         // These can be safely adjusted without adjusting discrete
         // Some fudge factor is needed for safety while translating + rotating
-        //public static final double maxChassisTranslationalSpeed = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
-        //public static final double maxWheelLinearVelocityMeters = ModuleConstants.maxFreeWheelSpeedMeters; // Assuming L1 swerve
         public static final double maxChassisTranslationalSpeed = 0.5;
         public static final double maxWheelLinearVelocityMeters = 0.5;
         public static final double maxChassisAngularVelocity = Math.PI * 2.0; // A decent number but not fast enough
@@ -40,12 +38,9 @@ public final class Constants {
         // Convention of first array: Front Left, Front Right, Back Left, Back Right
         public static final int[][] moduleCANIDs = {{1, 2, 9}, {3, 4, 10}, {5, 6, 11}, {7, 8, 12}};
 
-        // Initially 0 until we calibrate the modules 12/9
-        // As of 1/13-> LAST TESTING DAY -> Only have correct offset of 1 module
-        // WRONG OFFSETS: DO NOT USE [0, 360) degrees to measure swerve offsets
-        // ONLY USE [-180, 180)
-         public static final double[] moduleAngleOffsets = {-50.5, -178.2, 112.8, 84.5};
-        //public static final double[] moduleAngleOffsets = {0, 0, 0, 0};
+        // These are the correct offsets
+        // ONLY USE [-180, 180)/signed +-180
+        public static final double[] moduleAngleOffsets = {-50.5, -178.2, 112.8, 84.5};
 
         public static final boolean[] moduleInverts = {false, true, false, true};
     }
@@ -68,8 +63,8 @@ public final class Constants {
         public static final double turningEncoderPositionFactor = (2 * Math.PI) / turnGearRatio; // radians
         public static final double turningEncoderVelocityFactor = (2 * Math.PI) / turnGearRatio / 60.0; // radians per second
 
-        // Confirmed working kP!!
-        public static final double drivekP = 0.1; // This is good!
+        // Primarily uses kP - need to tune further (0.1 might not be enough)
+        public static final double drivekP = 0.1; // Works sufficiently as of 1/19/24
         public static final double drivekI = 0.0;
         public static final double drivekD = 0.0;
 
@@ -77,8 +72,10 @@ public final class Constants {
         // The 5790 value is the correct empirical value from the woodblocks
         // TODO - Might need to be re-calibrated for carpet or concrete
         public static final double maxRPMWoodBlocks = 5790.0;
+        public static final double maxRPMCarpet = 5676.0;
+
         // Max free speed in RPM originally, converted to RPS native unit
-        public static final double maxFreeSpeed = maxRPMWoodBlocks / 60.0;
+        public static final double maxFreeSpeed = maxRPMCarpet / 60.0;
         // Unit for this: meters/s
         // Calculating it out:
         // 94.6 RPS * pi * 0.1016 m / 8.14 gearing = 3.7094567527 meters / s = 12.1701337 feet / s
@@ -88,9 +85,12 @@ public final class Constants {
         // Calculating it out: 1/3.709 = 0.26958125317 power per meters/second
         // If we want to go to the max speed of 3.709, then multiply velocity error by this constant
         // I.e. 3.709 * 0.2695 ~= 1.0
+        // For carpet: 1/3.44890810811 m/s = 0.28994683785 power per meters/second
         public static final double drivekF = 1.0/maxFreeWheelSpeedMeters;
 
-        public static final double turnkP = 0.3; // Works as of 1/13/24!
+        // This is the turn kP that we will probably use
+        // Will need to retune - not sufficient enough for dynamic use
+        public static final double turnkP = 0.3; // Works as of 1/19/24!
         public static final double turnkI = 0.0;
         public static final double turnkD = 0.0;
 
