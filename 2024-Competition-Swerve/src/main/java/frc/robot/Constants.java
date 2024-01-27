@@ -35,7 +35,7 @@ public final class Constants {
         public static final double trackWidthHypotenuse = Math.sqrt(Math.pow(trackWidthX, 2) + Math.pow(trackWidthY, 2));
 
         // Joystick deadband for no accidental movement
-        public static final double deadBand = 0.1;
+        public static final double deadBand = 0.05;
 
         // Convenient array of module CAN IDs
         // Convention of first array: Front Left, Front Right, Back Left, Back Right
@@ -70,7 +70,7 @@ public final class Constants {
         public static final double turningEncoderVelocityFactor = (2 * Math.PI) / turnGearRatio / 60.0; // radians per second
 
         // Confirmed working kP!!
-        public static final double drivekP = 0.17; // This is good!
+        public static final double drivekP = 0.1; // This is good!
         //public static final double drivekP = 0.0;
         public static final double drivekI = 0.0;
         public static final double drivekD = 0.0;
@@ -92,15 +92,15 @@ public final class Constants {
         // Calculating it out: 1/3.709 = 0.26958125317 power per meters/second
         // If we want to go to the max speed of 3.709, then multiply velocity error by this constant
         // I.e. 3.709 * 0.2695 ~= 1.0
-        public static final double drivekF = 1.0/maxFreeWheelSpeedMeters;
+        public static final double drivekF = 0.3/maxFreeWheelSpeedMeters;
 
         public static final double turnkP = 0.3; 
         public static final double turnkI = 0.0;
         public static final double turnkD = 0.0;
 
-        public static final int driveCurrentLimit = 40;
+        public static final int driveCurrentLimit = 35;
         public static final int turnCurrentLimit = 20;
-//h
+
     }
 
 }
